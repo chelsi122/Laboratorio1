@@ -173,3 +173,46 @@ def f_passive(passive_inv):
 
     return df_passive
 
+def portfolios(prices):
+    """
+    Función que regresa el portafolio óptimo para la inversión,
+    obteniendo el radio de Sharpe
+    """
+    # Obtener rendimientos logaritmicos mensuales utilizando propiedad de divison de log
+    prices_pre = np.log(prices).diff()
+    # Establecer periodo prepandemia
+    prices1 = prices_pre.loc[prices_pre.index <= "2020-02-28", :]
+    matriz_cov = prices1.cov() * np.sqrt(12)
+    # Definir el numero de portafolios para realizar la frontera eficiente
+    p_ret = []
+    p_vol = []
+    p_weights = []
+    p_sharpe = []
+    num_assets = len(prices.columns)
+    num_portfolios = 100
+    indv_returns = prices1.mean()
+
+    for portfolio in range(num_portfolios):
+        weights = np.random.random(num_assets)
+        weights = weights / np.sum(weights)
+        p_weights.append(weights)
+        returns = np.dot(weights, indv_returns * 12) - .0425
+        p_ret.append(returns)
+
+        variance = weights.T @ matriz_cov @ weights
+        stand_dev = np.sqrt(variance)
+        p_vol.append(stand_dev)
+
+        sharpe_r = returns / stand_dev
+        p_sharpe.append(sharpe_r)
+
+    data = {'Returns': p_ret, 'Volatility': p_vol, 'Sharpe': p_sharpe}
+
+    for counter, symbol in enumerate(prices1.columns.tolist()):
+        data[symbol + ' weight'] = [w[counter] for w in p_weights]
+    portfolios = pd.DataFrame(data)
+
+    return portfolios
+
+
+
