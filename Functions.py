@@ -214,5 +214,72 @@ def portfolios(prices):
 
     return portfolios
 
+def portfolio_1(tickers, prices_post1, prices, posdata, pesos1, c, capital):
+    # Creacion del portafolio inicial
+    portfolio_1 = pd.DataFrame()
+    portfolio_1["Ticker"] = tickers
+    portfolio_1['Precios'] = (
+        np.array([prices_post1.iloc[0, prices.columns.to_list().index(i)] for i in posdata['Ticker']]))
+    portfolio_1["Peso"] = pesos1
+    portfolio_1['Postura'] = np.round(capital * portfolio_1["Peso"], 2)
+    portfolio_1['Titulos'] = np.floor((portfolio_1["Postura"] / portfolio_1["Precios"]))
+    portfolio_1['Comisiones'] = np.round(portfolio_1['Precios'] * c * portfolio_1['Titulos'], 2)
+    portfolio_1 = portfolio_1.set_index("Ticker")
+    return portfolio_1
 
+def new_port(prices_post, tickers, prices, portfolio_1, c):
+    titulos_ant = []
+    for i in range(2):
+        word = pd.DataFrame(prices_post.iloc[i, :])
+        word.columns = ["Porcentaje"]
+        prices_down = word[word.Porcentaje <= -.05]
+        down = list(word.index.values)
+        prices_up = word[word.Porcentaje >= .05]
+        up = list(word.index.values)
 
+        new_titulos = []
+        new_portfolio = pd.DataFrame()
+        new_portfolio["Ticker"] = tickers
+        new_portfolio = new_portfolio.set_index("Ticker")
+        new_portfolio["Precio"] = prices.iloc[26 + i, :].to_list()  # Periodo de pandemia empieza en iloc 26
+
+        if i == 0:
+            new_portfolio["Titulos anteriores"] = portfolio_1.loc[:, "Titulos"].to_list()
+        else:
+            new_portfolio["Titulos anteriores"] = titulos_ant.to_list()
+        for ticker in tickers:
+            if ticker in down:
+                n_titulos = new_portfolio.loc[ticker, "Titulos anteriores"] * .975
+            else:
+                n_titulos = new_portfolio.loc[ticker, "Titulos anteriores"]
+            new_titulos.append(n_titulos)
+
+        new_portfolio["Nuevos Titulos"] = np.floor(new_titulos)
+        titulos_ant = new_portfolio["Nuevos Titulos"]
+        new_portfolio["Nuevo Valor"] = new_portfolio["Nuevos Titulos"] * new_portfolio["Precio"]
+        new_portfolio["Valor Venta"] = np.round(
+            (new_portfolio["Titulos anteriores"] - new_portfolio["Nuevos Titulos"]) * new_portfolio["Precio"], 2)
+        new_portfolio["Comisiones venta"] = new_portfolio["Valor Venta"] * c
+    return new_portfolio
+
+def df_activa(prices_post1, valor_portafolio, lista):
+    # Verificación de avance
+    df_activa = pd.DataFrame()
+    df_activa["timestamp"] = lista
+    valor_portafolio.insert(0, 1000000)
+    df_activa["capital"] = valor_portafolio
+    df_activa["rendimiento"] = df_activa.capital.diff() / df_activa.capital
+    df_activa["rendimiento_acumulado"] = df_activa["rendimiento"].cumsum()
+    return df_activa
+
+def df_operaciones(lista2, acciones_compra, acciones_venta, comisiones_compra, comisiones_venta):
+    # Verificacion de avance
+    df_operaciones = pd.DataFrame()
+    df_operaciones["timestamp"] = lista2
+    df_operaciones["titulos comprados / total operacion"] = acciones_compra
+    df_operaciones["titulos vendidos / total operacion"] = acciones_venta
+    df_operaciones["comisiones compra"] = comisiones_compra
+    df_operaciones["comisiones venta"] = comisiones_venta
+    df_operaciones["comisiones mes"] = df_operaciones["comisiones compra"] + df_operaciones["comisiones venta"]
+    df_operaciones["comisiones acumuladas"] = df_operaciones["comisiones mes"].cumsum()
+    return df_operaciones
